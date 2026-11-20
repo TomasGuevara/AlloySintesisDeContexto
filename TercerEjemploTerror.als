@@ -2,7 +2,11 @@
 // 1. CHARACTER
 // ============================================
 
-abstract sig Character {}
+abstract sig Character {
+    var condition: one Attributes,
+    inventory: set Item,
+    var location: one Location
+}
 
 one sig Saul, Amanda, Bruce, Player extends Character {}
 
@@ -16,93 +20,152 @@ abstract sig Item {}
 one sig Cigarettes, VacuumBottle, Mate,
         Guitar, Book extends Item {}
 
-// ============================================
-// 3. ACTIONS
-// ============================================
-
-abstract sig Action {}
-
-one sig KillSaul, KillBruce, CryFor,
-        RunAwayAmanda, RaiseTension extends Action {}
 
 // ============================================
-// 3. ACTIONS
+// 3. ATTRIBUTES
 // ============================================
 
 abstract sig Attributes {}
 
 one sig Alive, Dead extends Attributes {}
 
+
 // ============================================
-// 3. LOCATION
+// 4. LOCATION
 // ============================================
 
 abstract sig Location {}
 
 one sig Junin, PlazaSarmiento extends Location {}
 
+// ============================================
+// 7. ACTIONS
+// ============================================
+
+abstract sig Action {
+    var participants: set Character
+}
+
+one sig KillSaul, KillBruce,
+        RunAwayAmanda extends Action {}
+
 
 // ============================================
-// 4. INITIAL STATE
+// 8. INITIAL STATE
 // ============================================
 
 pred init {
 
-    Character.Saul -> Item.Cigarettes
-    Saul -> Alive
-    Saul -> Junin
-    Amanda -> VacuumBottle
-    Amanda -> Mateí
-    Amanda -> Alive
-    Amanda -> Junin
-    Bruce -> Guitar
-    Bruce -> Alive
-    Bruce -> Junin
-    Player -> Book
-    Player -> Alive
-    Player -> Junin
+    Saul.condition = Alive
+    Saul.inventory = Cigarettes
+    Saul.location = Junin
+
+    Amanda.condition = Alive
+    Amanda.inventory = VacuumBottle + Mate
+    Amanda.location = Junin
+
+    Bruce.condition = Alive
+    Bruce.inventory = Guitar
+    Bruce.location = Junin
+
+    Player.condition = Alive
+    Player.inventory = Book
+    Player.location = Junin
+
+    no Action.participants
 }
 
 
 // ============================================
-// 5. ACTION: KILL SAUL
+// 9. ACTION: KILL SAUL
 // ============================================
 
 pred killSaul {
 
-    Saul - Alive
-    Saul -> Dead
+    Saul.condition = Alive
+
+    Saul.condition' = Dead
+
+    all c: Character - Saul |
+        c.condition' = c.condition
+
+    all c: Character |
+        c.location' = c.location
+
+    KillSaul.participants' = Saul
+
+    all a: Action - KillSaul |
+        no a.participants'
 }
 
 
 // ============================================
-// 6. ACTION: KILL BRUCE
+// 10. ACTION: KILL BRUCE
 // ============================================
 
 pred killBruce {
 
-    Bruce - Alive
-    Bruce -> Dead
+    Bruce.condition = Alive
+
+    Bruce.condition' = Dead
+
+    all c: Character - Bruce |
+        c.condition' = c.condition
+
+    all c: Character |
+        c.location' = c.location
+
+    KillBruce.participants' = Bruce
+
+    all a: Action - KillBruce |
+        no a.participants'
 }
 
 
 // ============================================
-// 8. ACTION: RUN AWAY WITH AMANDA
+// 11. ACTION: RUN AWAY WITH AMANDA
 // ============================================
 
 pred runAwayAmanda {
 
-    Saul not in Alive
-    Bruce not in Alive
-    Amanda - Junin
-    Amanda -> PlazaSarmiento
-    Player - Junin
-    Player -> PlazaSarmiento
+    Saul.condition = Dead
+    Bruce.condition = Dead
+
+    Amanda.location' = PlazaSarmiento
+    Player.location' = PlazaSarmiento
+
+    all c: Character - Amanda - Player |
+        c.location' = c.location
+
+    all c: Character |
+        c.condition' = c.condition
+
+    RunAwayAmanda.participants' = Amanda + Player
+
+    all a: Action - RunAwayAmanda |
+        no a.participants'
 }
 
 
 // ============================================
-// 16. TRANSITION FUNCTION
+// 10. STUTTER
+// ============================================
+
+pred stutter {
+
+    all c: Character |
+        c.condition' = c.condition
+
+    all c: Character |
+        c.location' = c.location
+
+    all a: Action |
+        a.participants' = a.participants
+}
+
+
+// ============================================
+// 12. TRANSITION FUNCTION
 // ============================================
 
 pred step {
@@ -110,49 +173,52 @@ pred step {
     killSaul
     or killBruce
     or runAwayAmanda
+    or stutter
 }
 
 
 // ============================================
-// 17. TEMPORAL EXECUTION
+// 13. TEMPORAL EXECUTION
 // ============================================
 
 pred trace {
 
     init
+
     always step
 }
 
+
 // ============================================
-// 18. MODEL EXPLORATION
+// 14. MODEL EXPLORATION
 // ============================================
 
-// Display the initial world.
+// Initial world
 
 run init for 5 but 1..1 steps
 
 
-// Find a trace where Saul dies.
+// Saul dies
 
 run {
     trace
-    eventually (Saul = Dead)
+    eventually (Saul.condition = Dead)
 } for 5 but 5..8 steps
 
 
-// Find a trace where Amanda escapes.
+// Amanda escapes
 
 run {
     trace
-    eventually (Amanda = PlazaSarmiento)
+    eventually (Amanda.location = PlazaSarmiento)
 } for 5 but 5..8 steps
 
 
-// Find a trace where all five actions are executed.
+// Both characters die and Amanda escapes
 
 run {
     trace
-    eventually (Saul = Dead)
-    and eventually (Bruce = Dead)
-    and eventually (Amanda = PlazaSarmiento)
+    eventually (Saul.condition = Dead)
+    and eventually (Bruce.condition = Dead)
+    and eventually (Amanda.location = PlazaSarmiento)
 } for 5 but 8..10 steps
